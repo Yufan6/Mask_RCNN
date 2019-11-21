@@ -69,7 +69,7 @@ class damageConfig(Config):
     NUM_CLASSES = 1 + 1  # Background + damage
 
     # Number of training steps per epoch
-    STEPS_PER_EPOCH = 100
+    STEPS_PER_EPOCH = 200 # 200
 
     # Skip detections with < 90% confidence
     DETECTION_MIN_CONFIDENCE = 0.9
@@ -87,7 +87,7 @@ class damageDataset(utils.Dataset):
         subset: Subset to load: train or val
         """
         # Add classes. We have only one class to add.
-        self.add_class("damage", 1, "damage")
+        self.add_class("damage", 1, "cracking")
 
         # Train or validation dataset?
         assert subset in ["train", "val"]
@@ -222,9 +222,18 @@ def color_splash(image, mask):
 def detect_and_color_splash(model, image_path=None, video_path=None):
     assert image_path or video_path
 
+
+def detect_and_show(model, image_path=None, video_path=None):
+    import visualize_cv2
+    assert image_path or video_path
+
+
+
     # Image or video?
     if image_path:
-        # Run model detection and generate the color splash effect
+        # Validation dataset
+        dataset = damageDataset()
+        dataset.load_damage(args.dataset)
         print("Running on {}".format(args.image))
         # Read image
         image = skimage.io.imread(args.image)
@@ -315,9 +324,9 @@ if __name__ == '__main__':
 
     # Configurations
     if args.command == "train":
-        config = BalloonConfig()
+        config = damageConfig()
     else:
-        class InferenceConfig(BalloonConfig):
+        class InferenceConfig(damageConfig):
             # Set batch size to 1 since we'll be running inference on
             # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
             GPU_COUNT = 1
@@ -364,6 +373,9 @@ if __name__ == '__main__':
         train(model)
     elif args.command == "splash":
         detect_and_color_splash(model, image_path=args.image,
+                                video_path=args.video)
+    elif args.command == "show":
+        detect_and_show(model, image_path=args.image,
                                 video_path=args.video)
     else:
         print("'{}' is not recognized. "
