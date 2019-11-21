@@ -16,12 +16,13 @@ sys.path.append(ROOT_DIR)  # To find local version of the library
 from mrcnn import utils
 import mrcnn.model as modellib
 from mrcnn import visualize
+import damage
 
 # Directory to save logs and trained model
 MODEL_DIR = os.path.join(ROOT_DIR, "logs")
 
 # Local path to trained weights file
-COCO_MODEL_PATH = os.path.join(ROOT_DIR, "mask_rcnn_damage.h5")
+DAMAGE_MODEL_PATH = os.path.join("/home/yufan/Mask_RCNN/samples/damage", "mask_rcnn_damage_final.h5")
 
 class InferenceConfig(damage.damageConfig):
     # Set batch size to 1 since we'll be running inference on
@@ -37,10 +38,13 @@ config.display()
 model = modellib.MaskRCNN(mode="inference", model_dir=MODEL_DIR, config=config)
 
 # Load weights trained on MS-COCO
-model.load_weights(COCO_MODEL_PATH, by_name=True)
+model.load_weights(DAMAGE_MODEL_PATH, by_name=True)
 
 class_names = ['BG', 'cracking'
 ]
+
+IMAGE_DIR="/home/yufan/Mask_RCNN/datasets/damage/val"
+
 
 # Load a random image from the images folder
 file_names = next(os.walk(IMAGE_DIR))[2]
