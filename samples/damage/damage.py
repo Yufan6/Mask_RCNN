@@ -66,10 +66,10 @@ class damageConfig(Config):
     IMAGES_PER_GPU = 1
 
     # Number of classes (including background)
-    NUM_CLASSES = 1 + 1  # Background + damage
+    NUM_CLASSES = 1 + 3  # Background + damage
 
     # Number of training steps per epoch
-    STEPS_PER_EPOCH = 200 # 200
+    STEPS_PER_EPOCH =  200
 
     # Skip detections with < 90% confidence
     DETECTION_MIN_CONFIDENCE = 0.9
@@ -86,9 +86,9 @@ class damageDataset(utils.Dataset):
         dataset_dir: Root directory of the dataset.
         subset: Subset to load: train or val
         """
-        # Add classes. We have only one class to add.
-        self.add_class("damage", 1, "cracking")
-
+        self.add_class("damage", 1, "abrasion")
+        self.add_class("damage", 2, "scratch")
+        self.add_class("damage", 3, "dent")
         # Train or validation dataset?
         assert subset in ["train", "val"]
         dataset_dir = os.path.join(dataset_dir, subset)
@@ -117,6 +117,7 @@ class damageDataset(utils.Dataset):
         annotations = [a for a in annotations if a['regions']]
 
         # Add images
+
         for a in annotations:
             # Get the x, y coordinaets of points of the polygons that make up
             # the outline of each object instance. These are stores in the
@@ -125,7 +126,7 @@ class damageDataset(utils.Dataset):
             if type(a['regions']) is dict:
                 polygons = [r['shape_attributes'] for r in a['regions'].values()]
             else:
-                polygons = [r['shape_attributes'] for r in a['regions']] 
+                polygons = [r['shape_attributes'] for r in a['regions']]
 
             # load_mask() needs the image size to convert polygons to masks.
             # Unfortunately, VIA doesn't include it in JSON, so we must read
@@ -195,7 +196,7 @@ def train(model):
     print("Training network heads")
     model.train(dataset_train, dataset_val,
                 learning_rate=config.LEARNING_RATE,
-                epochs=30,
+                epochs= 30,
                 layers='heads')
 
 
@@ -345,7 +346,7 @@ if __name__ == '__main__':
     # Select weights file to load
     if args.weights.lower() == "coco":
         weights_path = COCO_WEIGHTS_PATH
-        # Download weights file
+        # Download
         if not os.path.exists(weights_path):
             utils.download_trained_weights(weights_path)
     elif args.weights.lower() == "last":
