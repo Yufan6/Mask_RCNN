@@ -66,11 +66,10 @@ class damageConfig(Config):
     IMAGES_PER_GPU = 1
 
     # Number of classes (including background)
-    NUM_CLASSES = 1 + 3  # Background + damage
-
+#    NUM_CLASSES = 1 + 2  # Background + damage
+    NUM_CLASSES = 1 + 2
     # Number of training steps per epoch
     STEPS_PER_EPOCH =  200
-
     # Skip detections with < 90% confidence
     DETECTION_MIN_CONFIDENCE = 0.9
 
@@ -86,9 +85,8 @@ class damageDataset(utils.Dataset):
         dataset_dir: Root directory of the dataset.
         subset: Subset to load: train or val
         """
-        self.add_class("damage", 1, "abrasion")
-        self.add_class("damage", 2, "scratch")
-        self.add_class("damage", 3, "dent")
+        self.add_class("damage", 1, "scratch")  #yufan
+        self.add_class("damage", 2, "dent")     #yufan
         # Train or validation dataset?
         assert subset in ["train", "val"]
         dataset_dir = os.path.join(dataset_dir, subset)
@@ -125,8 +123,13 @@ class damageDataset(utils.Dataset):
             # The if condition is needed to support VIA versions 1.x and 2.x.
             if type(a['regions']) is dict:
                 polygons = [r['shape_attributes'] for r in a['regions'].values()]
+                objects = [s['region_attributes'] for s in a['regions'].values()]  # bai
             else:
                 polygons = [r['shape_attributes'] for r in a['regions']]
+                objects = [s['region_attributes'] for s in a['regions']]  # bai
+
+            class_ids = [int(n['damage']) for n in objects]                            #yufan
+
 
             # load_mask() needs the image size to convert polygons to masks.
             # Unfortunately, VIA doesn't include it in JSON, so we must read
@@ -140,7 +143,8 @@ class damageDataset(utils.Dataset):
                 image_id=a['filename'],  # use file name as a unique image id
                 path=image_path,
                 width=width, height=height,
-                polygons=polygons)
+                polygons=polygons,
+                class_ids=class_ids)
 
     def load_mask(self, image_id):
         """Generate instance masks for an image.
@@ -149,11 +153,11 @@ class damageDataset(utils.Dataset):
             one mask per instance.
         class_ids: a 1D array of class IDs of the instance masks.
         """
-        # If not a balloon dataset image, delegate to parent class.
+        # If not a damage dataset image, delegate to parent class.
         image_info = self.image_info[image_id]
         if image_info["source"] != "damage":
             return super(self.__class__, self).load_mask(image_id)
-
+        class_ids = image_info['class_ids']
         # Convert polygons to a bitmap mask of shape
         # [height, width, instance_count]
         info = self.image_info[image_id]
@@ -166,7 +170,10 @@ class damageDataset(utils.Dataset):
 
         # Return mask, and array of class IDs of each instance. Since we have
         # one class ID only, we return an array of 1s
-        return mask.astype(np.bool), np.ones([mask.shape[-1]], dtype=np.int32)
+        print("info['class_ids']=", info['class_ids']) #yufan
+        class_ids = np.array(class_ids, dtype=np.int32) #yufan
+        return mask, class_ids #mask.astype(np.bool), np.ones([mask.shape[-1]], dtype=np.int32) #yufan
+
 
     def image_reference(self, image_id):
         """Return the path of the image."""
@@ -232,19 +239,40 @@ def detect_and_show(model, image_path=None, video_path=None):
 
     # Image or video?
     if image_path:
+        # # Validation dataset
+        # dataset = damageDataset()
+        # dataset.load_damage(args.dataset)
+        # print("Running on {}".format(args.image))
+        # # Read image
+        # image = skimage.io.imread(args.image)
+        # # Detect objects
+        # r = model.detect([image], verbose=1)[0]
+        # # Color splash
+        # splash = color_splash(image, r['masks'])
+        # # Save output
+        # file_name = "splash_{:%Y%m%dT%H%M%S}.png".format(datetime.datetime.now())
+        # skimage.io.imsave(file_name, splash)
+
+
         # Validation dataset
         dataset = damageDataset()
-        dataset.load_damage(args.dataset)
-        print("Running on {}".format(args.image))
+        dataset.load_damage(args.dataset, "val")
+
+        dataset.prepare()
+        print("Image:{}\nClass : {}". format(len(dataset.image_ids), dataset.class_names))
+        print("Running on {}". format(args.image))
         # Read image
         image = skimage.io.imread(args.image)
         # Detect objects
-        r = model.detect([image], verbose=1)[0]
-        # Color splash
-        splash = color_splash(image, r['masks'])
+        results = model.detect([image], verbose=1)
+        r = results[0]
         # Save output
-        file_name = "splash_{:%Y%m%dT%H%M%S}.png".format(datetime.datetime.now())
-        skimage.io.imsave(file_name, splash)
+        file_name = "detected_{:%Y%m%dT%H%M%S}.png ".format(datetime.datetime.now())
+        N = r['rois'].shape[0]
+        filter_classs_names = ['scratch', 'dent']
+        visualize_cv2.save_image(image, file_name, r['rois'], r['masks'], r['class_id'], r['scores'],
+                                 dataset.class_names, filter_classs_names, scores_thresh=0.7, mod=0)
+
     elif video_path:
         import cv2
         # Video capture
@@ -347,6 +375,7 @@ if __name__ == '__main__':
     if args.weights.lower() == "coco":
         weights_path = COCO_WEIGHTS_PATH
         # Download
+
         if not os.path.exists(weights_path):
             utils.download_trained_weights(weights_path)
     elif args.weights.lower() == "last":

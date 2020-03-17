@@ -40,11 +40,11 @@ model = modellib.MaskRCNN(mode="inference", model_dir=MODEL_DIR, config=config)
 # Load weights trained on MS-COCO
 model.load_weights(DAMAGE_MODEL_PATH, by_name=True)
 
-class_names = ['BG', 'cracking'
+class_names = ['BG', 'scratch', 'dent'
 ]
 
-IMAGE_DIR="/home/yufan/Mask_RCNN/datasets/damage/val"
-
+#IMAGE_DIR="/home/yufan/Mask_RCNN/datasets/damage/val"
+IMAGE_DIR="/home/yufan/Desktop/test"
 
 # Load a random image from the images folder
 file_names = next(os.walk(IMAGE_DIR))[2]
